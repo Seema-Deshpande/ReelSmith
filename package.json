@@ -1,0 +1,39 @@
+{
+  "name": "reelsmith",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Upload a video, describe the edit in plain language, approve the plan, and get back a captioned vertical clip.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/server.ts",
+    "build": "tsc",
+    "start": "node --env-file-if-exists=.env dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "smoke": "tsx --env-file-if-exists=.env scripts/smoke.ts",
+    "db:migrate": "node scripts/db.mjs migrate",
+    "db:rollback": "node scripts/db.mjs rollback",
+    "db:seed": "node scripts/db.mjs seed",
+    "db:unseed": "node scripts/db.mjs unseed",
+    "db:test": "node scripts/db.mjs test"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "express": "^4.21.0",
+    "multer": "^2.4.0",
+    "node-pg-migrate": "^9.0.0",
+    "openai": "^4.67.0",
+    "pg": "^8.13.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/multer": "^2.3.0",
+    "@types/node": "^22.7.0",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

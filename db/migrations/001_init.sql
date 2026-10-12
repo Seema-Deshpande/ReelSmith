@@ -1,7 +1,8 @@
 -- Reelsmith initial schema (PostgreSQL 13+, uses built-in gen_random_uuid()).
 -- Mirrors the ER diagram in README.md.
+-- Applied by node-pg-migrate (npm run db:migrate), which wraps each migration in a transaction.
 
-BEGIN;
+-- Up Migration
 
 CREATE TABLE users (
     id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -119,4 +120,6 @@ CREATE TABLE outputs (
 );
 CREATE INDEX outputs_plan_id_idx ON outputs (plan_id);
 
-COMMIT;
+-- Down Migration
+DROP TABLE outputs, revisions, caption_styles, crop_keyframes, segments, plans,
+           words, transcripts, video_assets, jobs, users;

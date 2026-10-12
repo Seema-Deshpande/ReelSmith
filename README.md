@@ -56,21 +56,37 @@ Statuses: `analyzing`, `awaiting_approval`, `queued`, `rendering`, `done`, `fail
 
 ## Layout
 
+Requests flow through layers, and each layer only talks to the one below it: **route → middleware → controller → service → queries → database**.
+
 ```
-package.json      scripts: build, start, dev, smoke
-tsconfig.json     compiler options (output in dist/)
-src/server.ts     Express API and static hosting
-src/jobs.ts       job store, pipeline, render queue, cleanup
-src/probe.ts      ffprobe and silence detection
-src/transcribe.ts Whisper API (plus mock provider)
-src/planner.ts    Claude planner and heuristic fallback
-src/schema.ts     plan validation (zod) and safety clamps
-src/ass.ts        caption file with word highlighting
-src/track.ts      subject detection, smoothing and crop keyframes
-src/render.ts     FFmpeg filter graph and progress
-src/presets.ts    platform sizes and length limits
-public/index.html mobile friendly UI
+package.json            scripts: dev, build, start, typecheck, smoke, db:*
+tsconfig.json           compiler options (output in dist/)
+db/migrations/          schema migrations (node-pg-migrate), seed.sql, tests/smoke.sql
+scripts/db.mjs          helper behind the npm run db:* scripts
+public/index.html       mobile friendly UI
+
+src/server.ts           starts the server and shuts it down cleanly
+src/app.ts              builds the Express app (middleware, routes, error handling)
+src/config.ts           reads and validates environment variables
+src/db.ts               Postgres pool, query and transaction helpers
+src/errors.ts           HttpError (status plus message)
+src/storage.ts          file storage on local disk (swap for S3/R2 later)
+src/presets.ts          platform sizes and length limits
+
+src/routes/             URL to controller wiring (jobs.routes.ts, index.ts)
+src/middleware/         asyncHandler, validate (zod), upload (multer), errorHandler
+src/controllers/        HTTP only: read the request, call a service, send the response
+src/services/           business rules and orchestration (jobs.service.ts)
+src/queries/            SQL only (jobs.queries.ts)
+src/schemas/            zod schemas for requests and the edit plan
+
+Planned pipeline modules (live in src/services/ when added):
+probe.ts (ffprobe, silence detection), transcribe.ts (Whisper and mock),
+planner.ts (Claude and heuristic), track.ts (subject tracking),
+ass.ts (captions with word highlighting), render.ts (FFmpeg graph and progress)
 ```
+
+Adding an endpoint: add a zod schema in `schemas/`, a query in `queries/`, a function in the service, a controller function, and one line in the routes file.
 
 ## Data model
 
