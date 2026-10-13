@@ -1,6 +1,6 @@
 import type { RequestHandler } from "express";
 import type { ZodTypeAny } from "zod";
-import { HttpError } from "../errors.js";
+import { HttpError } from "../helpers/errors.js";
 
 /** Checks `data` against `schema`. Returns the cleaned data or throws a 400 listing every problem. */
 function parse(schema: ZodTypeAny, data: unknown): unknown {

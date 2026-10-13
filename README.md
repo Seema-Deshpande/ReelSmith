@@ -45,7 +45,7 @@ Environment variables (see `.env.example`):
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/api/jobs` | multipart: `video`, `prompt`, `platform`, optional `language` |
+| POST | `/api/jobs` | multipart: `video`, `prompt`, `platform`, optional `language`, optional `targetDurationS` (seconds) |
 | GET | `/api/jobs/:id` | status, progress, plan, estimate, output |
 | POST | `/api/jobs/:id/revise` | `{ "feedback": "..." }` updates the plan |
 | POST | `/api/jobs/:id/approve` | optional overrides, starts the render |
@@ -67,17 +67,23 @@ public/index.html       mobile friendly UI
 
 src/server.ts           starts the server and shuts it down cleanly
 src/app.ts              builds the Express app (middleware, routes, error handling)
-src/config.ts           reads and validates environment variables
-src/db.ts               Postgres pool, query and transaction helpers
-src/errors.ts           HttpError (status plus message)
-src/storage.ts          file storage on local disk (swap for S3/R2 later)
-src/presets.ts          platform sizes and length limits
+
+src/config/             the app's settings and setup:
+                        index.ts (settings from environment variables),
+                        database.ts (Postgres connection pool),
+                        presets.ts (platform sizes and length limits)
+
+src/helpers/            small reusable functions used across the layers:
+                        env.ts (read env variables), errors.ts (HttpError),
+                        storage.ts (files on disk; swap for S3/R2 later),
+                        jobResponse.ts (database rows to API JSON)
 
 src/routes/             URL to controller wiring (jobs.routes.ts, index.ts)
 src/middleware/         asyncHandler, validate (zod), upload (multer), errorHandler
 src/controllers/        HTTP only: read the request, call a service, send the response
 src/services/           business rules and orchestration (jobs.service.ts)
 src/queries/            SQL only (jobs.queries.ts)
+src/types/              TypeScript types for database rows and data we save (job.types.ts)
 src/schemas/            zod schemas for requests and the edit plan
 
 Planned pipeline modules (live in src/services/ when added):
@@ -117,6 +123,7 @@ erDiagram
         string prompt
         string platform "reels, tiktok, shorts"
         string language
+        float target_duration_s "output length: chosen by the user or by the pipeline"
         string status "analyzing, awaiting_approval, queued, rendering, done, failed"
         int progress
         string error
@@ -204,6 +211,16 @@ Notes:
 - `SEGMENT` order comes from `position`, unique per plan.
 - `CROP_KEYFRAME` rows hold the smoothed crop path for a segment and only exist when `framing` is `follow_subject`.
 - `expires_at` backs the cleanup task that deletes old jobs and files; deletes cascade from `JOB`.
+
+## Output length
+
+The output clip can never be longer than the platform allows or longer than the source video. Limits and preset lengths per platform live in `src/config/presets.ts`.
+
+- **User gives a length** (`targetDurationS` on upload): it must be within the platform limit (otherwise `400`). If the video is shorter, the length is cut down to the video's length.
+- **User gives no length**: the pipeline picks the largest preset choice that is not above the platform default (30 s) and fits the video. A 60 s video on Reels gets 30 s. A 3 s clip gets 3 s.
+- **Choices**: once the video is probed, `GET /api/jobs/:id` returns `video` (length, size, fps, audio), `targetDurationS` and `durationChoicesS` (the preset lengths that fit this video, for example `[15, 30, 60]`), so the UI can show them.
+
+The rules are in `src/helpers/duration.ts`.
 
 ## Subject tracking
 

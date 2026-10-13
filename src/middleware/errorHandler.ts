@@ -1,7 +1,7 @@
 import type { ErrorRequestHandler, RequestHandler } from "express";
 import multer from "multer";
-import { HttpError } from "../errors.js";
-import * as storage from "../storage.js";
+import { HttpError } from "../helpers/errors.js";
+import * as storage from "../helpers/storage.js";
 
 export const notFound: RequestHandler = (_req, res) => {
   res.status(404).json({ error: "not found" });

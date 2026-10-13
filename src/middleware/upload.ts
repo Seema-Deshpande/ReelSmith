@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import multer from "multer";
-import { config } from "../config.js";
-import { HttpError } from "../errors.js";
+import { config } from "../config/index.js";
+import { HttpError } from "../helpers/errors.js";
 
 // Writes the video to a temp name inside the upload dir; the service moves it into the job's folder.
 const uploader = multer({

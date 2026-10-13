@@ -1,8 +1,13 @@
-import type { NextFunction, Request, RequestHandler, Response } from "express";
+import type { Request, RequestHandler, Response } from "express";
 
-/** Express 4 does not catch rejected promises; forward them to the error handler. */
-export function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>): RequestHandler {
+// Express 4 does not notice when an async function fails.
+// This wrapper catches the failure and passes it to the error handler,
+// so controllers can simply throw errors.
+
+type Controller = (req: Request, res: Response) => Promise<unknown>;
+
+export function asyncHandler(controller: Controller): RequestHandler {
   return (req, res, next) => {
-    fn(req, res, next).catch(next);
+    controller(req, res).catch(next);
   };
 }
