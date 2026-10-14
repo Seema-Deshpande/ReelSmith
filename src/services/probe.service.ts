@@ -1,5 +1,4 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { runProgram } from "../helpers/runProgram.js";
 
 // What this file does:
 //   Looks at a video file and tells us its length, size, frame rate and whether it has sound.
@@ -57,15 +56,11 @@ export async function probeVideo(videoPath: string): Promise<VideoInfo> {
 
 // Run ffprobe on a file and return its result as an object.
 async function runFfprobe(videoPath: string): Promise<FfprobeResult> {
-  // execFile runs a program, but it uses old-style callbacks.
-  // promisify lets us use it with await instead.
-  const runProgram = promisify(execFile);
-
   try {
-    const { stdout } = await runProgram(
+    const stdout = await runProgram(
       "ffprobe",
       ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", videoPath],
-      { timeout: 30_000 }, // give up after 30 seconds
+      30_000, // give up after 30 seconds
     );
     return JSON.parse(stdout);
   } catch {

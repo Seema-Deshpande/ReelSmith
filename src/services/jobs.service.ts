@@ -49,6 +49,7 @@ export async function getJob(id: string) {
   const segments = plan ? await jobsQueries.findSegments(plan.id) : [];
   const captionStyle = plan ? await plansQueries.findCaptionStyle(plan.id) : undefined;
   const output = await jobsQueries.findOutput(id);
+  const transcriptProvider = await plansQueries.findTranscriptProvider(id);
 
-  return toJobResponse({ job, video, plan, segments, captionStyle, output });
+  return toJobResponse({ job, video, plan, segments, captionStyle, transcriptProvider, output });
 }

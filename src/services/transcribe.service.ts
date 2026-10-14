@@ -1,19 +1,26 @@
 import { config } from "../config/index.js";
+import { roundSeconds } from "../helpers/roundSeconds.js";
 import type { Word } from "../types/plan.types.js";
+import { transcribeWithLocalWhisper } from "./transcribe.local.js";
+import { transcribeWithWhisper } from "./transcribe.whisper.js";
 
 // What this file does:
 //   Turns the speech in a video into a list of words with times (a "transcript").
 //   TRANSCRIBE_PROVIDER in .env picks who does it:
 //     mock    - makes up words. Free, no key. Good for building and testing.
-//     whisper - OpenAI Whisper, the real one. Not built yet.
+//     whisper - OpenAI Whisper (transcribe.whisper.ts). Costs money, needs OPENAI_API_KEY.
+//               If it fails (no credits, bad key, OpenAI down), local Whisper is used as the backup.
+//     local   - whisper.cpp on this computer (transcribe.local.ts). Free. Set up with: npm run setup:whisper
 
 interface TranscribeInput {
+  videoPath: string;
   videoDurationS: number;
   hasAudio: boolean;
+  language: string | null; // for example "en"; null lets Whisper work it out
 }
 
 export interface Transcript {
-  provider: string;
+  provider: "mock" | "whisper" | "whisper-local"; // who really made the words
   words: Word[];
 }
 
@@ -24,16 +31,45 @@ export interface Transcript {
 export async function transcribe(input: TranscribeInput): Promise<Transcript> {
   const provider = config.transcribeProvider;
 
-  // A video with no sound has no speech.
+  // A video with no sound has no speech, so there is nothing to send to anyone.
   if (!input.hasAudio) {
-    return { provider, words: [] };
+    return { provider: provider === "local" ? "whisper-local" : provider, words: [] };
   }
 
   if (provider === "mock") {
     return { provider, words: makeUpWords(input.videoDurationS) };
   }
 
-  throw new Error("Whisper transcription is not built yet. Set TRANSCRIBE_PROVIDER=mock in .env.");
+  if (provider === "local") {
+    return { provider: "whisper-local", words: await transcribeWithLocalWhisper(input.videoPath, input.language) };
+  }
+
+  return transcribeWithBackup(input);
+}
+
+// ---------------------------------------------------------------------------
+// OpenAI Whisper with a free backup
+// ---------------------------------------------------------------------------
+
+// Try OpenAI Whisper first. If it fails for any reason, try local Whisper instead.
+// If both fail, the error says what went wrong with each.
+async function transcribeWithBackup(input: TranscribeInput): Promise<Transcript> {
+  try {
+    return { provider: "whisper", words: await transcribeWithWhisper(input.videoPath, input.language) };
+  } catch (openAiError) {
+    const openAiReason = errorMessage(openAiError);
+    console.warn(`OpenAI Whisper failed (${openAiReason}) Using local Whisper instead.`);
+
+    try {
+      return { provider: "whisper-local", words: await transcribeWithLocalWhisper(input.videoPath, input.language) };
+    } catch (localError) {
+      throw new Error(`${openAiReason} The free local backup did not work either: ${errorMessage(localError)}`);
+    }
+  }
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Something went wrong.";
 }
 
 // ---------------------------------------------------------------------------
@@ -64,7 +100,7 @@ function makeUpWords(videoDurationS: number): Word[] {
       if (time + lengthS > videoDurationS - 0.3) {
         return words; // out of video
       }
-      words.push({ idx: words.length, text, startS: round(time), endS: round(time + lengthS) });
+      words.push({ idx: words.length, text, startS: roundSeconds(time), endS: roundSeconds(time + lengthS) });
       time += lengthS + 0.05;
     }
 
@@ -72,8 +108,4 @@ function makeUpWords(videoDurationS: number): Word[] {
     sentenceNumber++;
   }
   return words;
-}
-
-function round(seconds: number) {
-  return Math.round(seconds * 100) / 100;
 }

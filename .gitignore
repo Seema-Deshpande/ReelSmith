@@ -10,3 +10,4 @@ tests/.fixtures/
 .test-uploads/
 test-results/
 playwright-report/
+models/

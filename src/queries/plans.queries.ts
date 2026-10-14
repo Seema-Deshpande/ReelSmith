@@ -29,6 +29,12 @@ export const plansQueries = {
     );
   },
 
+  // Who made the transcript: "mock", "whisper" or "whisper-local". Undefined before transcription.
+  async findTranscriptProvider(jobId: string): Promise<string | undefined> {
+    const { rows } = await pool.query<{ provider: string }>("SELECT provider FROM transcripts WHERE job_id = $1", [jobId]);
+    return rows[0]?.provider;
+  },
+
   async findWords(jobId: string): Promise<Word[]> {
     const { rows } = await pool.query<{ idx: number; text: string; start_s: number; end_s: number }>(
       `SELECT w.idx, w.text, w.start_s, w.end_s

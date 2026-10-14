@@ -1,4 +1,5 @@
 import { PRESETS } from "../config/presets.js";
+import { roundSeconds } from "../helpers/roundSeconds.js";
 import type { PlanDraft, PlannerInput, Segment, Word } from "../types/plan.types.js";
 
 // What this file does:
@@ -71,17 +72,13 @@ function pickSegments(phrases: Segment[], input: PlannerInput): Segment[] {
     if (totalS + lengthS > maxLengthS) {
       if (segments.length === 0) {
         // The very first phrase is already too long: keep as much of it as fits.
-        segments.push({ startS: round(startS), endS: round(startS + maxLengthS) });
+        segments.push({ startS: roundSeconds(startS), endS: roundSeconds(startS + maxLengthS) });
       }
       break;
     }
 
-    segments.push({ startS: round(startS), endS: round(endS) });
+    segments.push({ startS: roundSeconds(startS), endS: roundSeconds(endS) });
     totalS += lengthS;
   }
   return segments;
-}
-
-function round(seconds: number) {
-  return Math.round(seconds * 100) / 100;
 }

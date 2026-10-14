@@ -226,7 +226,11 @@ Any failure sets the status to `failed` with a plain-language reason in `error`.
 
 **Providers** (set in `.env`):
 
-- `TRANSCRIBE_PROVIDER=mock` makes up a repeatable transcript (sentences with pauses). Videos with no audio get no words. `whisper` is not built yet.
+- `TRANSCRIBE_PROVIDER=mock` makes up a repeatable transcript (sentences with pauses). Videos with no audio get no words.
+- `TRANSCRIBE_PROVIDER=whisper` uses OpenAI Whisper (`src/services/transcribe.whisper.ts`). FFmpeg takes the sound out as a small mono MP3, Whisper returns every word with its time, and the temporary MP3 is deleted. It needs `OPENAI_API_KEY`, costs a small amount per minute of audio, and **sends the video's audio to OpenAI**. Videos with no sound never call OpenAI. The job's `language` (for example `en-US`) is sent as `en`; with no language, Whisper detects it. Audio over 25 MB (about 100 minutes) is rejected. Automatic retries are off, so errors show at once.
+- **Free backup:** if OpenAI Whisper fails for any reason (no credits, bad key, OpenAI down), the pipeline tries local Whisper instead. If both fail, the job fails and the message says what went wrong with each.
+- `TRANSCRIBE_PROVIDER=local` uses local Whisper on purpose (`src/services/transcribe.local.ts`, whisper.cpp). It is free and the audio never leaves your machine, but it is slower. Set it up once with `npm run setup:whisper`, which installs `whisper.cpp` with Homebrew and downloads the multilingual `base` model (about 150 MB) into `models/` (not committed). `WHISPER_CPP_BIN` and `WHISPER_CPP_MODEL` can point to a different program or model.
+- `GET /api/jobs/:id` shows `transcriptProvider` (`mock`, `whisper` or `whisper-local`) so you can see who made the words.
 - `PLANNER_PROVIDER=heuristic` uses simple rules: group words into phrases at pauses longer than 0.6 s, keep phrases from the start until the target length is used up, and cut the pauses between them. With no speech it keeps the start of the video and turns captions off. It ignores the prompt. `claude` is not built yet.
 
 Every plan goes through `src/helpers/checkPlan.ts` before it is saved. It rejects empty plans, segments that end before they start or overlap, segments past the end of the video, and plans longer than the platform allows.

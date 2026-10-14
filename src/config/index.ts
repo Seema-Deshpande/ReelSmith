@@ -25,8 +25,18 @@ export const config = {
   // How long a job and its files are kept before cleanup.
   jobTtlHours: readNumber("JOB_TTL_HOURS", 48),
 
-  // Who turns speech into text: "mock" makes up a transcript (free, no key); "whisper" is the real one.
-  transcribeProvider: readChoice("TRANSCRIBE_PROVIDER", ["mock", "whisper"], "mock"),
+  // Who turns speech into text:
+  //   mock    - makes up a transcript (free, no key)
+  //   whisper - OpenAI Whisper (costs money, needs a key). If it fails, local Whisper is the backup.
+  //   local   - whisper.cpp on this computer (free, set up with npm run setup:whisper)
+  transcribeProvider: readChoice("TRANSCRIBE_PROVIDER", ["mock", "whisper", "local"], "mock"),
+
+  // Local Whisper (whisper.cpp): the program and the model file.
+  whisperCppBin: process.env.WHISPER_CPP_BIN || "whisper-cli",
+  whisperCppModel: path.resolve(process.env.WHISPER_CPP_MODEL || "models/ggml-base.bin"),
+
+  // OpenAI key. Only needed when TRANSCRIBE_PROVIDER=whisper.
+  openaiApiKey: process.env.OPENAI_API_KEY ?? "",
 
   // Who makes the edit plan: "heuristic" uses simple rules (free, no key); "claude" is the real one.
   plannerProvider: readChoice("PLANNER_PROVIDER", ["heuristic", "claude"], "heuristic"),

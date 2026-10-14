@@ -11,6 +11,7 @@ test.describe("after an upload the pipeline", () => {
     expect(job.status).toBe("awaiting_approval");
     expect(job.progress).toBe(100);
     expect(job.error).toBeNull();
+    expect(job.transcriptProvider).toBe("mock"); // the tests use the free mock transcript
 
     // What ffprobe found.
     expect(job.video).toMatchObject({ width: 320, height: 240, fps: 10, hasAudio: true });

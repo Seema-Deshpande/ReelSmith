@@ -44,10 +44,11 @@ interface JobRows {
   plan?: PlanRow;
   segments: SegmentRow[];
   captionStyle?: CaptionStyleRow;
+  transcriptProvider?: string;
   output?: OutputRow;
 }
 
-export function toJobResponse({ job, video, plan, segments, captionStyle, output }: JobRows) {
+export function toJobResponse({ job, video, plan, segments, captionStyle, transcriptProvider, output }: JobRows) {
   return {
     id: job.id,
     prompt: job.prompt,
@@ -62,6 +63,7 @@ export function toJobResponse({ job, video, plan, segments, captionStyle, output
     // The output lengths the user can pick from. Known once the video has been probed.
     durationChoicesS: video ? durationChoices(job.platform as Platform, video.duration_s) : [],
     video: video ? toVideoResponse(video) : null,
+    transcriptProvider: transcriptProvider ?? null, // who made the words: mock, whisper or whisper-local
     plan: plan ? toPlanResponse(plan, segments, captionStyle) : null,
     estimate: null, // render time estimate arrives with the render step
     output: output ? toOutputResponse(job.id, output) : null,

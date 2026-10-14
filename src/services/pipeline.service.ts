@@ -54,7 +54,12 @@ async function durationStep(jobId: string) {
 async function transcribeStep(jobId: string) {
   const { job, video } = await loadJob(jobId);
 
-  const transcript = await transcribe({ videoDurationS: video.duration_s, hasAudio: video.has_audio });
+  const transcript = await transcribe({
+    videoPath: storage.sourcePath(jobId),
+    videoDurationS: video.duration_s,
+    hasAudio: video.has_audio,
+    language: job.language,
+  });
   await plansQueries.insertTranscript(jobId, transcript.provider, job.language, transcript.words);
 
   await jobsQueries.setProgress(jobId, 60);
