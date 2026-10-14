@@ -1,4 +1,4 @@
-import { pool } from "../config/database.js";
+import { pool, type Db } from "../config/database.js";
 import type { JobRow, NewJob, NewVideoAsset, OutputRow, PlanRow, SegmentRow, VideoAssetRow } from "../types/job.types.js";
 
 // SQL only. No business rules and no HTTP here.
@@ -31,6 +31,11 @@ export const jobsQueries = {
 
   async setTargetDuration(jobId: string, seconds: number): Promise<void> {
     await pool.query("UPDATE jobs SET target_duration_s = $2 WHERE id = $1", [jobId, seconds]);
+  },
+
+  // The plan is ready: the job now waits for the user to approve it.
+  async markAwaitingApproval(jobId: string, db: Db = pool): Promise<void> {
+    await db.query("UPDATE jobs SET status = 'awaiting_approval', progress = 100 WHERE id = $1", [jobId]);
   },
 
   async markFailed(jobId: string, message: string): Promise<void> {

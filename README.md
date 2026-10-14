@@ -75,6 +75,7 @@ src/config/             the app's settings and setup:
 
 src/helpers/            small reusable functions used across the layers:
                         env.ts (read env variables), errors.ts (HttpError),
+                        duration.ts (output length rules), checkPlan.ts (plan safety check),
                         storage.ts (files on disk; swap for S3/R2 later),
                         jobResponse.ts (database rows to API JSON)
 
@@ -86,10 +87,8 @@ src/queries/            SQL only (jobs.queries.ts)
 src/types/              TypeScript types for database rows and data we save (job.types.ts)
 src/schemas/            zod schemas for requests and the edit plan
 
-Planned pipeline modules (live in src/services/ when added):
-probe.ts (ffprobe, silence detection), transcribe.ts (Whisper and mock),
-planner.ts (Claude and heuristic), track.ts (subject tracking),
-ass.ts (captions with word highlighting), render.ts (FFmpeg graph and progress)
+Pipeline services in src/services/: pipeline, probe, transcribe, planner (+ planner.heuristic).
+Still to add: track (subject tracking), ass (captions), render (FFmpeg graph and progress)
 ```
 
 Adding an endpoint: add a zod schema in `schemas/`, a query in `queries/`, a function in the service, a controller function, and one line in the routes file.
@@ -211,6 +210,26 @@ Notes:
 - `SEGMENT` order comes from `position`, unique per plan.
 - `CROP_KEYFRAME` rows hold the smoothed crop path for a segment and only exist when `framing` is `follow_subject`.
 - `expires_at` backs the cleanup task that deletes old jobs and files; deletes cascade from `JOB`.
+
+## What happens after an upload
+
+The pipeline (`src/services/pipeline.service.ts`) runs these steps in the background. Each is one small function.
+
+| Step | What it does | Progress |
+|---|---|---|
+| probe | ffprobe reads length, size, fps and audio; saved in `video_assets` | 30 |
+| duration | decides the output length (see below) | 40 |
+| transcribe | turns speech into timed words; saved in `transcripts` and `words` | 60 |
+| plan | makes the edit plan, checks it, saves `plans`, `segments` and `caption_styles`; status becomes `awaiting_approval` | 100 |
+
+Any failure sets the status to `failed` with a plain-language reason in `error`.
+
+**Providers** (set in `.env`):
+
+- `TRANSCRIBE_PROVIDER=mock` makes up a repeatable transcript (sentences with pauses). Videos with no audio get no words. `whisper` is not built yet.
+- `PLANNER_PROVIDER=heuristic` uses simple rules: group words into phrases at pauses longer than 0.6 s, keep phrases from the start until the target length is used up, and cut the pauses between them. With no speech it keeps the start of the video and turns captions off. It ignores the prompt. `claude` is not built yet.
+
+Every plan goes through `src/helpers/checkPlan.ts` before it is saved. It rejects empty plans, segments that end before they start or overlap, segments past the end of the video, and plans longer than the platform allows.
 
 ## Output length
 

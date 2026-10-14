@@ -1,10 +1,10 @@
 import type { Platform } from "../config/presets.js";
-import type { JobRow, OutputRow, PlanRow, SegmentRow, VideoAssetRow } from "../types/job.types.js";
+import type { CaptionStyleRow, JobRow, OutputRow, PlanRow, SegmentRow, VideoAssetRow } from "../types/job.types.js";
 import { durationChoices } from "./duration.js";
 
 // Turns database rows (snake_case names) into the JSON the API returns (camelCase names).
 
-function toPlanResponse(plan: PlanRow, segments: SegmentRow[]) {
+function toPlanResponse(plan: PlanRow, segments: SegmentRow[], style: CaptionStyleRow | undefined) {
   return {
     version: plan.version,
     planner: plan.planner,
@@ -14,6 +14,7 @@ function toPlanResponse(plan: PlanRow, segments: SegmentRow[]) {
     levelAudio: plan.level_audio,
     targetDurationS: plan.target_duration_s,
     approved: plan.approved,
+    captionStyle: style && { font: style.font, highlightColor: style.highlight_color, position: style.position },
     segments: segments.map((s) => ({ position: s.position, startS: s.start_s, endS: s.end_s })),
   };
 }
@@ -42,10 +43,11 @@ interface JobRows {
   video?: VideoAssetRow;
   plan?: PlanRow;
   segments: SegmentRow[];
+  captionStyle?: CaptionStyleRow;
   output?: OutputRow;
 }
 
-export function toJobResponse({ job, video, plan, segments, output }: JobRows) {
+export function toJobResponse({ job, video, plan, segments, captionStyle, output }: JobRows) {
   return {
     id: job.id,
     prompt: job.prompt,
@@ -60,7 +62,7 @@ export function toJobResponse({ job, video, plan, segments, output }: JobRows) {
     // The output lengths the user can pick from. Known once the video has been probed.
     durationChoicesS: video ? durationChoices(job.platform as Platform, video.duration_s) : [],
     video: video ? toVideoResponse(video) : null,
-    plan: plan ? toPlanResponse(plan, segments) : null,
+    plan: plan ? toPlanResponse(plan, segments, captionStyle) : null,
     estimate: null, // render time estimate arrives with the render step
     output: output ? toOutputResponse(job.id, output) : null,
   };

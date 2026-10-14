@@ -4,6 +4,7 @@ import { HttpError } from "../helpers/errors.js";
 import { toJobResponse } from "../helpers/jobResponse.js";
 import * as storage from "../helpers/storage.js";
 import { jobsQueries } from "../queries/jobs.queries.js";
+import { plansQueries } from "../queries/plans.queries.js";
 import type { CreateJobInput } from "../schemas/job.schema.js";
 import { runPipeline } from "./pipeline.service.js";
 
@@ -46,7 +47,8 @@ export async function getJob(id: string) {
   const video = await jobsQueries.findVideoAsset(id);
   const plan = await jobsQueries.findLatestPlan(id);
   const segments = plan ? await jobsQueries.findSegments(plan.id) : [];
+  const captionStyle = plan ? await plansQueries.findCaptionStyle(plan.id) : undefined;
   const output = await jobsQueries.findOutput(id);
 
-  return toJobResponse({ job, video, plan, segments, output });
+  return toJobResponse({ job, video, plan, segments, captionStyle, output });
 }

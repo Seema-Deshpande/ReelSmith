@@ -43,6 +43,12 @@ export interface VideoAssetRow {
   has_audio: boolean;
 }
 
+export interface CaptionStyleRow {
+  font: string;
+  highlight_color: string;
+  position: string;
+}
+
 export interface OutputRow {
   duration_s: number;
   size_bytes: string; // the database returns bigint numbers as text

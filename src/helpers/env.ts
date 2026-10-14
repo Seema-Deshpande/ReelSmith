@@ -20,3 +20,14 @@ export function readRequired(name: string): string {
   }
   return text;
 }
+
+// Read a setting that must be one of a fixed list of words, for example "mock" or "whisper".
+export function readChoice<T extends string>(name: string, allowed: readonly T[], defaultValue: T): T {
+  const text = process.env[name];
+  if (!text) return defaultValue;
+
+  if (!allowed.includes(text as T)) {
+    throw new Error(`${name} must be one of: ${allowed.join(", ")}. It is "${text}".`);
+  }
+  return text as T;
+}
