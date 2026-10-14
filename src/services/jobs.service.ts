@@ -48,5 +48,5 @@ export async function getJob(id: string) {
   const segments = plan ? await jobsQueries.findSegments(plan.id) : [];
   const output = await jobsQueries.findOutput(id);
 
-  return toJobResponse(job, video, plan, segments, output);
+  return toJobResponse({ job, video, plan, segments, output });
 }

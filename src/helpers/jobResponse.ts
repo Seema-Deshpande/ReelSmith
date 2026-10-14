@@ -36,14 +36,16 @@ function toOutputResponse(jobId: string, output: OutputRow) {
   };
 }
 
-// `video`, `plan` and `output` are null until the job has them.
-export function toJobResponse(
-  job: JobRow,
-  video: VideoAssetRow | undefined,
-  plan: PlanRow | undefined,
-  segments: SegmentRow[],
-  output: OutputRow | undefined,
-) {
+// The rows that make up one job. `video`, `plan` and `output` are missing until the job has them.
+interface JobRows {
+  job: JobRow;
+  video?: VideoAssetRow;
+  plan?: PlanRow;
+  segments: SegmentRow[];
+  output?: OutputRow;
+}
+
+export function toJobResponse({ job, video, plan, segments, output }: JobRows) {
   return {
     id: job.id,
     prompt: job.prompt,
