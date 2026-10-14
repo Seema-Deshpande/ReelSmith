@@ -4,3 +4,9 @@ dist/
 uploads/
 outputs/
 .DS_Store
+
+# Tests
+tests/.fixtures/
+.test-uploads/
+test-results/
+playwright-report/

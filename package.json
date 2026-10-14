@@ -12,6 +12,7 @@
     "build": "tsc",
     "start": "node --env-file-if-exists=.env dist/server.js",
     "typecheck": "tsc --noEmit",
+    "test": "playwright test",
     "smoke": "tsx --env-file-if-exists=.env scripts/smoke.ts",
     "db:migrate": "node scripts/db.mjs migrate",
     "db:rollback": "node scripts/db.mjs rollback",
@@ -29,6 +30,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/express": "^4.17.21",
     "@types/multer": "^2.3.0",
     "@types/node": "^22.7.0",
