@@ -2,7 +2,7 @@
 
 Upload a video, describe the edit in plain language, approve the plan, and get back a captioned vertical clip ready for Reels, TikTok or Shorts.
 
-> Status: spec-first MVP, written in Node + TypeScript. The code is not written yet, so the instructions below describe the target.
+> Status: spec-first MVP, written in Node + TypeScript. The code is  written for the backend; no frontend yet, so the instructions below describe the target.
 
 ## How it works
 
