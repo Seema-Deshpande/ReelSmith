@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { totalSeconds, uploadAndWait } from "../support/helpers";
+import { isKept, totalSeconds, uploadAndWait } from "../support/helpers";
 
 // These tests upload a video, wait for the background steps, then check the finished job.
 // The mock transcript and the heuristic planner are used, so the results are always the same.
@@ -76,6 +76,28 @@ test.describe("after an upload the pipeline", () => {
     expect(job.plan).toMatchObject({ captionsOn: false, trimSilence: false, levelAudio: false });
     expect(job.plan.segments).toHaveLength(1);
     expect(job.plan.segments[0].startS).toBe(0);
+  });
+
+  test("reads the sample video (a computer voice with pauses)", async ({ request }) => {
+    const job = await uploadAndWait(request, { file: "sample-talk.mp4", platform: "reels" });
+
+    expect(job.status).toBe("awaiting_approval");
+    expect(job.video).toMatchObject({ width: 640, height: 360, fps: 15, hasAudio: true });
+    expect(job.video.durationS).toBeCloseTo(18.6, 0);
+
+    // 15 s is the only preset length that fits inside an 18.6 s video.
+    expect(job.durationChoicesS).toEqual([15]);
+    expect(job.targetDurationS).toBe(15);
+  });
+
+  test("cuts the real pauses in the sound, even though the transcript is made up", async ({ request }) => {
+    // The sample video has pauses at 2.0-3.5, 5.5-7.0, 9.1-10.5 and 12.5-14.0 seconds.
+    // The mock transcript knows nothing about them, so these cuts can only come from the audio.
+    const job = await uploadAndWait(request, { file: "sample-talk.mp4", platform: "reels" });
+
+    for (const pauseMiddle of [2.75, 6.25, 9.8, 13.25]) {
+      expect(isKept(job.plan.segments, pauseMiddle), `second ${pauseMiddle} is silent, so it should be cut`).toBe(false);
+    }
   });
 
   test("fails the job with a clear reason when the file is not a real video", async ({ request }) => {

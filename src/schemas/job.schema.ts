@@ -34,3 +34,18 @@ export type CreateJobInput = z.infer<typeof createJobBodySchema>;
 export const jobParamsSchema = z.object({
   id: z.string().uuid("invalid job id"),
 });
+
+// Body of POST /api/jobs/:id/revise
+export const reviseBodySchema = z.object({
+  feedback: z.string().trim().min(1, "feedback is required").max(500),
+});
+export type ReviseInput = z.infer<typeof reviseBodySchema>;
+
+// Body of POST /api/jobs/:id/approve. Every field is optional: send only what the user switched.
+export const approveBodySchema = z.object({
+  captionsOn: z.boolean().optional(),
+  trimSilence: z.boolean().optional(),
+  levelAudio: z.boolean().optional(),
+  framing: z.enum(["center_crop", "blurred_fit"]).optional(),
+});
+export type ApproveInput = z.infer<typeof approveBodySchema>;

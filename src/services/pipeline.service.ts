@@ -7,19 +7,22 @@ import { jobsQueries } from "../queries/jobs.queries.js";
 import { plansQueries } from "../queries/plans.queries.js";
 import { makePlan } from "./planner.service.js";
 import { probeVideo } from "./probe.service.js";
+import { findSilences } from "./silence.service.js";
 import { transcribe } from "./transcribe.service.js";
 
 // Processes a new job in the background, one step at a time:
 //   1. probe      read the video's details
-//   2. duration   decide how long the output will be
-//   3. transcribe turn the speech into words
-//   4. plan       decide which parts to keep, then wait for the user to approve
+//   2. silence    find the stretches with no sound
+//   3. duration   decide how long the output will be
+//   4. transcribe turn the speech into words
+//   5. plan       decide which parts to keep, then wait for the user to approve
 // Each step is its own function below. To add a step, write a function like probeStep
 // and call it in runPipeline after the previous one.
 
 export async function runPipeline(jobId: string) {
   try {
     await probeStep(jobId);
+    await silenceStep(jobId);
     await durationStep(jobId);
     await transcribeStep(jobId);
     await planStep(jobId);
@@ -39,7 +42,17 @@ async function probeStep(jobId: string) {
   await jobsQueries.setProgress(jobId, 30);
 }
 
-// Step 2: decide how long the output clip will be, and save it on the job.
+// Step 2: listen to the audio and save where the silent stretches are.
+async function silenceStep(jobId: string) {
+  const { video } = await loadJob(jobId);
+
+  const silences = await findSilences(storage.sourcePath(jobId), video.duration_s, video.has_audio);
+  await jobsQueries.setSilences(jobId, silences);
+
+  await jobsQueries.setProgress(jobId, 35);
+}
+
+// Step 3: decide how long the output clip will be, and save it on the job.
 // Uses the length the user asked for, or a preset for the platform if they did not.
 async function durationStep(jobId: string) {
   const { job, video } = await loadJob(jobId);
@@ -50,7 +63,7 @@ async function durationStep(jobId: string) {
   await jobsQueries.setProgress(jobId, 40);
 }
 
-// Step 3: turn the speech into words and save the transcript.
+// Step 4: turn the speech into words and save the transcript.
 async function transcribeStep(jobId: string) {
   const { job, video } = await loadJob(jobId);
 
@@ -65,7 +78,7 @@ async function transcribeStep(jobId: string) {
   await jobsQueries.setProgress(jobId, 60);
 }
 
-// Step 4: make the edit plan and save it. The job then waits for the user to approve it.
+// Step 5: make the edit plan and save it. The job then waits for the user to approve it.
 async function planStep(jobId: string) {
   const { job, video } = await loadJob(jobId);
   if (!job.target_duration_s) {
@@ -81,6 +94,7 @@ async function planStep(jobId: string) {
     videoDurationS: video.duration_s,
     hasAudio: video.has_audio,
     words,
+    silences: video.silences,
   });
   checkPlan(plan, video.duration_s, platform);
 

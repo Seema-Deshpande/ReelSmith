@@ -1,6 +1,6 @@
 import { pool, type Db } from "../config/database.js";
 import type { CaptionStyleRow } from "../types/job.types.js";
-import type { CaptionStyleDraft, PlanDraft, Segment, Word } from "../types/plan.types.js";
+import type { CaptionStyleDraft, PlanDraft, PlanToggles, Segment, Word } from "../types/plan.types.js";
 
 // SQL for transcripts, words, plans, segments and caption styles.
 // Functions that save data take an optional `db`, so they can run inside a transaction.
@@ -58,6 +58,25 @@ export const plansQueries = {
       [jobId, plan.planner, plan.framing, plan.captionsOn, plan.trimSilence, plan.levelAudio, plan.targetDurationS],
     );
     return rows[0]!.id;
+  },
+
+  // Marks the job's newest plan as approved. Toggles that are missing are left as they were.
+  async approveLatestPlan(jobId: string, toggles: PlanToggles, db: Db = pool): Promise<void> {
+    await db.query(
+      `UPDATE plans
+       SET approved = true,
+           captions_on = COALESCE($2, captions_on),
+           trim_silence = COALESCE($3, trim_silence),
+           level_audio = COALESCE($4, level_audio),
+           framing = COALESCE($5, framing)
+       WHERE id = (SELECT id FROM plans WHERE job_id = $1 ORDER BY version DESC LIMIT 1)`,
+      [jobId, toggles.captionsOn ?? null, toggles.trimSilence ?? null, toggles.levelAudio ?? null, toggles.framing ?? null],
+    );
+  },
+
+  // Remembers what the user asked for when they made this plan version.
+  async insertRevision(planId: string, feedback: string, db: Db = pool): Promise<void> {
+    await db.query("INSERT INTO revisions (plan_id, feedback) VALUES ($1, $2)", [planId, feedback]);
   },
 
   async insertSegments(planId: string, segments: Segment[], db: Db = pool): Promise<void> {

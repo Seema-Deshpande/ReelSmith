@@ -15,6 +15,7 @@
     "test": "playwright test",
     "smoke": "tsx --env-file-if-exists=.env scripts/smoke.ts",
     "setup:whisper": "sh scripts/setup-local-whisper.sh",
+    "make:test-video": "sh scripts/make-test-video.sh",
     "db:migrate": "node scripts/db.mjs migrate",
     "db:rollback": "node scripts/db.mjs rollback",
     "db:seed": "node scripts/db.mjs seed",

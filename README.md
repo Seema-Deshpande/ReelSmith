@@ -47,8 +47,8 @@ Environment variables (see `.env.example`):
 |---|---|---|
 | POST | `/api/jobs` | multipart: `video`, `prompt`, `platform`, optional `language`, optional `targetDurationS` (seconds) |
 | GET | `/api/jobs/:id` | status, progress, plan, estimate, output |
-| POST | `/api/jobs/:id/revise` | `{ "feedback": "..." }` updates the plan |
-| POST | `/api/jobs/:id/approve` | optional overrides, starts the render |
+| POST | `/api/jobs/:id/revise` | `{ "feedback": "make it 15 seconds" }` makes a new plan version |
+| POST | `/api/jobs/:id/approve` | optional switches (`captionsOn`, `trimSilence`, `levelAudio`, `framing`); approves the newest plan and queues the job |
 | GET | `/api/jobs/:id/video` | the MP4 (`?download=1` to save) |
 | DELETE | `/api/jobs/:id` | remove the job and its files |
 
@@ -218,6 +218,7 @@ The pipeline (`src/services/pipeline.service.ts`) runs these steps in the backgr
 | Step | What it does | Progress |
 |---|---|---|
 | probe | ffprobe reads length, size, fps and audio; saved in `video_assets` | 30 |
+| silence | listens to the audio and finds the stretches with no sound; saved in `video_assets.silences` | 35 |
 | duration | decides the output length (see below) | 40 |
 | transcribe | turns speech into timed words; saved in `transcripts` and `words` | 60 |
 | plan | makes the edit plan, checks it, saves `plans`, `segments` and `caption_styles`; status becomes `awaiting_approval` | 100 |
@@ -231,9 +232,29 @@ Any failure sets the status to `failed` with a plain-language reason in `error`.
 - **Free backup:** if OpenAI Whisper fails for any reason (no credits, bad key, OpenAI down), the pipeline tries local Whisper instead. If both fail, the job fails and the message says what went wrong with each.
 - `TRANSCRIBE_PROVIDER=local` uses local Whisper on purpose (`src/services/transcribe.local.ts`, whisper.cpp). It is free and the audio never leaves your machine, but it is slower. Set it up once with `npm run setup:whisper`, which installs `whisper.cpp` with Homebrew and downloads the multilingual `base` model (about 150 MB) into `models/` (not committed). `WHISPER_CPP_BIN` and `WHISPER_CPP_MODEL` can point to a different program or model.
 - `GET /api/jobs/:id` shows `transcriptProvider` (`mock`, `whisper` or `whisper-local`) so you can see who made the words.
-- `PLANNER_PROVIDER=heuristic` uses simple rules: group words into phrases at pauses longer than 0.6 s, keep phrases from the start until the target length is used up, and cut the pauses between them. With no speech it keeps the start of the video and turns captions off. It ignores the prompt. `claude` is not built yet.
+- `PLANNER_PROVIDER=heuristic` uses simple rules: group words into phrases at pauses longer than 0.6 s, **cut the measured silences out of those phrases**, keep phrases from the start until the target length is used up, and drop the pauses between them. With no speech it keeps the start of the video and turns captions off. It ignores the prompt. `claude` is not built yet.
+- **Why silences are measured from the audio:** whisper.cpp reports word times back to back, with no gaps, so a pause is absorbed into the word before it (a 1.4 s pause showed up as a 1.5 s "Tip"). Looking for gaps between words finds nothing. FFmpeg's `silencedetect` (`src/services/silence.service.ts`) measures the real quiet stretches instead, and the planner cuts those out whichever transcript provider was used.
+- **Known limit:** the word times themselves are still only approximate with local Whisper. A word can be placed at the wrong moment (in the sample video "short" is timed at 6.99 s although it is spoken near 5.2 s). The cuts are right, but caption timing needs care in the render step.
 
 Every plan goes through `src/helpers/checkPlan.ts` before it is saved. It rejects empty plans, segments that end before they start or overlap, segments past the end of the video, and plans longer than the platform allows.
+
+## Revising and approving a plan
+
+A job that is `awaiting_approval` can be changed or accepted. Both endpoints answer `409` for a job in any other status, and both return the updated job.
+
+- **Revise** (`POST /api/jobs/:id/revise`, `{ "feedback": "..." }`) makes a **new plan version** and saves the feedback in `revisions`. Anything you do not mention stays as it was, so "no captions" followed by "make it 20 seconds" keeps captions off. Unclear feedback gets a `400` that lists what is understood and changes nothing.
+- **Approve** (`POST /api/jobs/:id/approve`, optional switches) marks the newest plan approved and sets the job to `queued`. Switches you send are applied first. Rendering starts from `queued` in the next step; until then a queued job just waits.
+- Both lock the job's row while they work, so two requests at the same time cannot both change it.
+
+**What the rule-based planner understands** (`src/services/feedback.heuristic.ts`; the Claude planner will understand much more). Several can be combined in one message.
+
+| Say something like | Effect |
+|---|---|
+| "make it 15 seconds", "20s", "2 minutes" | new output length (never longer than the video or the platform allows) |
+| "shorter" / "longer" | half / one and a half times the current length |
+| "no captions", "without captions" / "add captions" | captions off / on |
+| "keep the pauses" / "trim the silence" | silence trimming off / on |
+| "blurred background" / "center crop" | framing |
 
 ## Output length
 
@@ -271,6 +292,26 @@ Design for replacing the plain center crop with a crop that follows the main sub
 **Testing**: the smoke test uses a short clip with a face moving left to right and asserts the crop keyframes move in the same direction. Smoothing and simplification are pure functions with unit tests.
 
 **Open questions**: which detector model and licence to ship, and whether to use multiple subjects when two people are speaking.
+
+## Testing
+
+```bash
+npm test
+```
+
+The tests call the real server over HTTP with Playwright (no browser needed). They use their own database (`reelsmith_test`, created and migrated automatically), their own upload folder and their own port, so your development data is never touched. You need Postgres and FFmpeg installed.
+
+- **`api` tests** use the free mock transcript and cover uploads, the pipeline, revising and approving, and the rule-based planner.
+- **`whisper-local` test** sends real speech through local Whisper and checks that the plan cuts the pauses. It is skipped if local Whisper is not set up (`npm run setup:whisper`).
+
+**The sample video** (`tests/assets/sample-talk.mp4`, 161 KB, saved in git) is 640x360 at 15 fps and 18.6 s long. The picture is FFmpeg's `testsrc` pattern with a clock in the middle, so you can see which second you are looking at. The sound is a computer voice reading five sentences. Where the sound is:
+
+```
+speech   0.0-2.0 | 3.5-5.5 | 7.0-9.1 | 10.5-12.5 | 14.0-15.0 | quiet until 17.0
+pause         2.0-3.5   5.5-7.0   9.1-10.5   12.5-14.0
+```
+
+Rebuild it with `npm run make:test-video` (macOS only, because it uses the `say` command). To try it by hand, upload it with `curl -F "video=@tests/assets/sample-talk.mp4;type=video/mp4" -F prompt=test -F platform=reels http://localhost:3000/api/jobs`.
 
 ## Before real users
 

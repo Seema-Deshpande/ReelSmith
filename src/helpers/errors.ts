@@ -15,4 +15,9 @@ export class HttpError extends Error {
   static notFound(message: string) {
     return new HttpError(404, message);
   }
+
+  // The request is fine, but it does not fit the job's current state (for example, approving twice).
+  static conflict(message: string) {
+    return new HttpError(409, message);
+  }
 }

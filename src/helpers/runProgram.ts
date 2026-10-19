@@ -6,8 +6,8 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 
 // Run a program (for example ffprobe or ffmpeg), wait for it to finish, and return what it printed.
+// `stdout` is its normal output and `stderr` is its messages (FFmpeg writes its reports there).
 // Throws if the program fails or takes longer than `timeoutMs`.
-export async function runProgram(program: string, args: string[], timeoutMs: number): Promise<string> {
-  const { stdout } = await execFileAsync(program, args, { timeout: timeoutMs });
-  return stdout;
+export async function runProgram(program: string, args: string[], timeoutMs: number) {
+  return execFileAsync(program, args, { timeout: timeoutMs });
 }

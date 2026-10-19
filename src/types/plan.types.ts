@@ -42,4 +42,18 @@ export interface PlannerInput {
   videoDurationS: number;
   hasAudio: boolean;
   words: Word[];
+  silences: Segment[]; // stretches of the video with no sound, measured from the audio
+}
+
+// The settings a user can switch on a plan. A field that is missing means "leave it as it is".
+export interface PlanToggles {
+  captionsOn?: boolean;
+  trimSilence?: boolean;
+  levelAudio?: boolean;
+  framing?: "center_crop" | "blurred_fit"; // follow_subject is not built yet
+}
+
+// What a piece of feedback asks to change: the toggles, and maybe a new output length.
+export interface PlanChanges extends PlanToggles {
+  targetDurationS?: number;
 }

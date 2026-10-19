@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { FIXTURES_DIR, TEST_DATABASE_URL, TEST_UPLOAD_DIR } from "./env";
+import { ASSETS_DIR, FIXTURES_DIR, TEST_DATABASE_URL, TEST_UPLOAD_DIR } from "./env";
 
 // Runs once before all tests. It needs Postgres (psql) and FFmpeg installed.
 //   1. make sure the test database exists and has the latest tables
@@ -68,6 +68,9 @@ function makeFixtures() {
 
   // 20 second video with no sound.
   makeVideo("silent.mp4", ["-f", "lavfi", "-i", "testsrc=duration=20:size=320x240:rate=10"]);
+
+  // The sample video with real speech. It is saved in git, so it is only copied here.
+  fs.copyFileSync(path.join(ASSETS_DIR, "sample-talk.mp4"), path.join(FIXTURES_DIR, "sample-talk.mp4"));
 
   // A file that is not a video at all.
   fs.writeFileSync(path.join(FIXTURES_DIR, "notvideo.mp4"), randomBytes(20_000));

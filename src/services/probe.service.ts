@@ -57,7 +57,7 @@ export async function probeVideo(videoPath: string): Promise<VideoInfo> {
 // Run ffprobe on a file and return its result as an object.
 async function runFfprobe(videoPath: string): Promise<FfprobeResult> {
   try {
-    const stdout = await runProgram(
+    const { stdout } = await runProgram(
       "ffprobe",
       ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", videoPath],
       30_000, // give up after 30 seconds

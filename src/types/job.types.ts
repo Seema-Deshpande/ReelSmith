@@ -41,6 +41,7 @@ export interface VideoAssetRow {
   height: number;
   fps: number;
   has_audio: boolean;
+  silences: { startS: number; endS: number }[]; // stretches with no sound; empty until they are measured
 }
 
 export interface CaptionStyleRow {

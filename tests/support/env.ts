@@ -9,3 +9,10 @@ export const FIXTURES_DIR = "tests/.fixtures";
 
 // The server in the tests rejects uploads bigger than this (see playwright.config.ts).
 export const TEST_MAX_UPLOAD_MB = 5;
+
+// The sample video with real speech is saved in git here (made by npm run make:test-video).
+export const ASSETS_DIR = "tests/assets";
+
+// A second test server that uses local Whisper (free), for the real-speech tests.
+export const LOCAL_WHISPER_PORT = 3101;
+export const LOCAL_WHISPER_MODEL = "models/ggml-base.bin";

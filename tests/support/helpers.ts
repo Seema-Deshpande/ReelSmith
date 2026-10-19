@@ -1,7 +1,8 @@
 import { expect, type APIRequestContext } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { FIXTURES_DIR } from "./env";
+import { FIXTURES_DIR, LOCAL_WHISPER_MODEL } from "./env";
 
 // Small helpers so the tests read like plain steps.
 
@@ -58,4 +59,30 @@ export async function uploadAndWait(request: APIRequestContext, options: UploadO
 // Add up the length of all segments in a plan.
 export function totalSeconds(segments: { startS: number; endS: number }[]) {
   return segments.reduce((sum, segment) => sum + (segment.endS - segment.startS), 0);
+}
+
+// Ask for a change to a job's plan, in plain words.
+export async function revise(request: APIRequestContext, jobId: string, feedback: string) {
+  return request.post(`/api/jobs/${jobId}/revise`, { data: { feedback } });
+}
+
+// Approve a job's plan. `switches` are the optional last changes, such as { captionsOn: false }.
+export async function approve(request: APIRequestContext, jobId: string, switches?: Record<string, unknown>) {
+  return request.post(`/api/jobs/${jobId}/approve`, { data: switches ?? {} });
+}
+
+// True when local Whisper is installed and its model is downloaded (npm run setup:whisper).
+// Tests that need it are skipped on a machine where it is not set up.
+export function localWhisperIsReady() {
+  try {
+    execFileSync("which", ["whisper-cli"], { stdio: "ignore" });
+  } catch {
+    return false;
+  }
+  return fs.existsSync(LOCAL_WHISPER_MODEL);
+}
+
+// True when the source second `time` falls inside one of the plan's kept segments.
+export function isKept(segments: { startS: number; endS: number }[], time: number) {
+  return segments.some((segment) => segment.startS <= time && time <= segment.endS);
 }
