@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { ASSETS_DIR, FIXTURES_DIR, TEST_DATABASE_URL, TEST_UPLOAD_DIR } from "./env";
+import { ASSETS_DIR, FIXTURES_DIR, TEST_DATABASE_URL, TEST_OUTPUT_DIR, TEST_UPLOAD_DIR } from "./env";
 
 // Runs once before all tests. It needs Postgres (psql) and FFmpeg installed.
 //   1. make sure the test database exists and has the latest tables
@@ -46,11 +46,13 @@ function prepareDatabase() {
   // Start clean. Deleting users and jobs also deletes everything that belongs to them.
   execFileSync("psql", [TEST_DATABASE_URL, "-c", "TRUNCATE users, jobs CASCADE"], { stdio: "ignore" });
 
-  // Playwright starts the server before this file runs, and the server creates the upload folder.
-  // So empty the folder, but do not delete the folder itself.
-  if (fs.existsSync(TEST_UPLOAD_DIR)) {
-    for (const entry of fs.readdirSync(TEST_UPLOAD_DIR)) {
-      fs.rmSync(path.join(TEST_UPLOAD_DIR, entry), { recursive: true, force: true });
+  // Playwright starts the server before this file runs, and the server creates these folders.
+  // So empty the folders, but do not delete the folders themselves.
+  for (const folder of [TEST_UPLOAD_DIR, TEST_OUTPUT_DIR]) {
+    if (!fs.existsSync(folder)) continue;
+
+    for (const entry of fs.readdirSync(folder)) {
+      fs.rmSync(path.join(folder, entry), { recursive: true, force: true });
     }
   }
 }

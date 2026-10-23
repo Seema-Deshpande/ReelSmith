@@ -19,6 +19,9 @@ export const config = {
   // Folder where uploaded videos are stored.
   uploadDir: path.resolve(process.env.UPLOAD_DIR || "uploads"),
 
+  // Folder where finished clips are stored.
+  outputDir: path.resolve(process.env.OUTPUT_DIR || "outputs"),
+
   // Largest video accepted, in bytes.
   maxUploadBytes: Math.floor(maxUploadMb * 1024 * 1024),
 

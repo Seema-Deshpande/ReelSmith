@@ -30,6 +30,9 @@ function describeError(err: unknown): { status: number; message: string } {
 export const errorHandler: ErrorRequestHandler = async (err, req, res, _next) => {
   if (req.file) await storage.removeFile(req.file.path).catch(() => {});
 
+  // If the answer is already being sent (a video download that was cut off), there is nothing to add.
+  if (res.headersSent) return;
+
   const { status, message } = describeError(err);
   res.status(status).json({ error: message });
 };
