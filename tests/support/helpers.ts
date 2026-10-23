@@ -86,3 +86,30 @@ export function localWhisperIsReady() {
 export function isKept(segments: { startS: number; endS: number }[], time: number) {
   return segments.some((segment) => segment.startS <= time && time <= segment.endS);
 }
+
+// Wait until a render has finished, one way or the other (the job is no longer queued or rendering).
+export async function waitForRender(request: APIRequestContext, jobId: string) {
+  let job: any;
+  await expect
+    .poll(
+      async () => {
+        job = await (await request.get(`/api/jobs/${jobId}`)).json();
+        return job.status;
+      },
+      { timeout: 60_000, intervals: [250] },
+    )
+    .toMatch(/^(done|failed)$/);
+  return job;
+}
+
+// Upload a video, wait for its plan, approve it, and wait for the finished clip. Returns the finished job.
+// `switches` are the optional last changes sent with the approval, such as { framing: "blurred_fit" }.
+export async function renderJobFor(request: APIRequestContext, options: UploadOptions = {}, switches?: Record<string, unknown>) {
+  const planned = await uploadAndWait(request, options);
+  expect(planned.status).toBe("awaiting_approval");
+
+  const approval = await approve(request, planned.id, switches);
+  expect(approval.status()).toBe(200);
+
+  return waitForRender(request, planned.id);
+}

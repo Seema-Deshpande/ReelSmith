@@ -53,6 +53,7 @@ export interface CaptionStyleRow {
 export interface OutputRow {
   duration_s: number;
   size_bytes: string; // the database returns bigint numbers as text
+  captions_burned_in: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -76,4 +77,14 @@ export interface NewVideoAsset {
   height: number;
   fps: number;
   hasAudio: boolean;
+}
+
+// A finished clip, ready to be saved.
+export interface NewOutput {
+  jobId: string;
+  planId: string;
+  storageKey: string;
+  durationS: number;
+  sizeBytes: number;
+  captionsBurnedIn: boolean;
 }

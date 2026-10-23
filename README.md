@@ -10,7 +10,7 @@ Upload a video, describe the edit in plain language, approve the plan, and get b
 2. **Probe + transcribe**: ffprobe reads the video; Whisper returns word timestamps. When framing is `follow_subject`, a detector also finds the main subject in sampled frames (see [Subject tracking](#subject-tracking)).
 3. **Plan**: Claude reads your prompt and the transcript and returns a JSON edit plan (segments, captions, framing, audio). Without an API key a simple heuristic planner is used instead.
 4. **Approve**: you see the plan, tweak toggles, or ask for changes in plain language ("make it 15 seconds").
-5. **Render**: FFmpeg cuts the segments, trims silences, reframes to the platform size, burns in word-highlight captions and levels the audio.
+5. **Render**: FFmpeg cuts the segments, drops the silences, reframes to the platform size and levels the audio. Word-highlight captions are planned but **not burned in yet** (see [Rendering](#rendering)).
 6. **Download or share** the MP4.
 
 ## Run it
@@ -77,7 +77,8 @@ src/helpers/            small reusable functions used across the layers:
                         env.ts (read env variables), errors.ts (HttpError),
                         duration.ts (output length rules), checkPlan.ts (plan safety check),
                         storage.ts (files on disk; swap for S3/R2 later),
-                        jobResponse.ts (database rows to API JSON)
+                        jobResponse.ts (database rows to API JSON),
+                        renderFilters.ts (the FFmpeg recipe), runFfmpeg.ts (runs FFmpeg with progress)
 
 src/routes/             URL to controller wiring (jobs.routes.ts, index.ts)
 src/middleware/         asyncHandler, validate (zod), upload (multer), errorHandler
@@ -87,8 +88,9 @@ src/queries/            SQL only (jobs.queries.ts)
 src/types/              TypeScript types for database rows and data we save (job.types.ts)
 src/schemas/            zod schemas for requests and the edit plan
 
-Pipeline services in src/services/: pipeline, probe, transcribe, planner (+ planner.heuristic).
-Still to add: track (subject tracking), ass (captions), render (FFmpeg graph and progress)
+Services in src/services/: pipeline, probe, silence, transcribe (+ whisper, local), planner (+ heuristic),
+feedback.heuristic, approval (revise and approve), render and render.queue.
+Still to add: track (subject tracking) and captions (burned-in word highlights)
 ```
 
 Adding an endpoint: add a zod schema in `schemas/`, a query in `queries/`, a function in the service, a controller function, and one line in the routes file.
@@ -256,6 +258,27 @@ A job that is `awaiting_approval` can be changed or accepted. Both endpoints ans
 | "keep the pauses" / "trim the silence" | silence trimming off / on |
 | "blurred background" / "center crop" | framing |
 
+## Rendering
+
+Approving a plan (`POST /api/jobs/:id/approve`) puts the job in a waiting line (`src/services/render.queue.ts`). One render runs at a time, in the order jobs were approved. The status goes `queued` -> `rendering` -> `done` (or `failed`), and `progress` rises from 0 to 100 while it renders.
+
+The recipe for FFmpeg is written in `src/helpers/renderFilters.ts` as a plain function, and the render itself is in `src/services/render.service.ts`:
+
+1. cut every segment of the plan out of the picture and the sound (with a tiny fade at each cut so there is no click),
+2. join the pieces,
+3. reframe to the platform's size (1080x1920): `center_crop` enlarges the picture to fill the frame and cuts off the edges; `blurred_fit` shows the whole picture in the middle over a blurred, enlarged copy of itself,
+4. level the sound (`loudnorm`, target -16 LUFS) if the plan says so,
+5. write an H.264 and AAC MP4 with `faststart`, so it plays everywhere.
+
+A finished job has an `output` block (`durationS`, `sizeBytes`, `captionsBurnedIn`, `videoUrl`). If the render fails, the job is `failed` with a plain message, the details go to the server log, and no half-written clip is kept.
+
+- `GET /api/jobs/:id/video` sends the clip. It supports byte ranges, so a browser can play it and skip around. Add `?download=1` to make the browser save it. It answers `404` until the clip is ready.
+- `DELETE /api/jobs/:id` removes the job, its upload and its clip (`204`). A job that is being rendered answers `409`.
+
+**The output is clean.** The clip contains only the user's video and the edits they asked for: no watermark, logo, badge or extra text of ours, one picture track, at most one sound track, and no tags saying where it came from. The tests check this (see [Testing](#testing)).
+
+**Captions are not burned in yet.** The plan can have captions switched on, but the clip will not have them, and `output.captionsBurnedIn` says `false`. The reason is the FFmpeg build here: Homebrew's standard `ffmpeg` has no `subtitles`/`ass` filter (no libass). The usual fix is `brew install ffmpeg-full`, which installs next to the standard one without replacing it, and a setting to point the app at it. A normal server install of FFmpeg (Debian, Ubuntu) already includes libass.
+
 ## Output length
 
 The output clip can never be longer than the platform allows or longer than the source video. Limits and preset lengths per platform live in `src/config/presets.ts`.
@@ -327,5 +350,7 @@ This MVP keeps jobs on local disk and runs renders in-process. For production:
 ## Known limits
 
 - Reframing follows one subject at a time (see [Subject tracking](#subject-tracking)). It falls back to a center crop or blurred-background fit when no subject is found, and it does not switch between speakers yet.
-- Silence trimming only runs when speech was detected.
+- Captions are not burned into clips yet (see [Rendering](#rendering)).
+- Silences are cut only from the stretches of the video where the transcript has speech. Video with constant background noise has no measurable silence, so nothing is cut from it.
+- Renders run inside the server, one at a time. If the server restarts, a job that was queued or rendering is not picked up again.
 - Instagram does not allow arbitrary apps to publish for personal accounts, so the app offers download and the phone's share sheet.

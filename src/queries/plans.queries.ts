@@ -1,5 +1,5 @@
 import { pool, type Db } from "../config/database.js";
-import type { CaptionStyleRow } from "../types/job.types.js";
+import type { CaptionStyleRow, PlanRow } from "../types/job.types.js";
 import type { CaptionStyleDraft, PlanDraft, PlanToggles, Segment, Word } from "../types/plan.types.js";
 
 // SQL for transcripts, words, plans, segments and caption styles.
@@ -77,6 +77,15 @@ export const plansQueries = {
   // Remembers what the user asked for when they made this plan version.
   async insertRevision(planId: string, feedback: string, db: Db = pool): Promise<void> {
     await db.query("INSERT INTO revisions (plan_id, feedback) VALUES ($1, $2)", [planId, feedback]);
+  },
+
+  // The plan the user approved (the newest one, if there are several).
+  async findApprovedPlan(jobId: string): Promise<PlanRow | undefined> {
+    const { rows } = await pool.query<PlanRow>(
+      "SELECT * FROM plans WHERE job_id = $1 AND approved ORDER BY version DESC LIMIT 1",
+      [jobId],
+    );
+    return rows[0];
   },
 
   async insertSegments(planId: string, segments: Segment[], db: Db = pool): Promise<void> {

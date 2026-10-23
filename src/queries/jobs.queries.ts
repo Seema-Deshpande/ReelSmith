@@ -1,5 +1,5 @@
 import { pool, type Db } from "../config/database.js";
-import type { JobRow, NewJob, NewVideoAsset, OutputRow, PlanRow, SegmentRow, VideoAssetRow } from "../types/job.types.js";
+import type { JobRow, NewJob, NewOutput, NewVideoAsset, OutputRow, PlanRow, SegmentRow, VideoAssetRow } from "../types/job.types.js";
 import type { Segment } from "../types/plan.types.js";
 
 // SQL only. No business rules and no HTTP here.
@@ -42,6 +42,34 @@ export const jobsQueries = {
   // The user approved the plan: the job now waits for a free render slot.
   async markQueued(jobId: string, db: Db = pool): Promise<void> {
     await db.query("UPDATE jobs SET status = 'queued', progress = 0 WHERE id = $1", [jobId]);
+  },
+
+  // A render is starting. Only a queued job can start, so this returns false if the job was
+  // deleted or is already being rendered. That is what stops one job from rendering twice.
+  async markRendering(jobId: string): Promise<boolean> {
+    const result = await pool.query(
+      "UPDATE jobs SET status = 'rendering', progress = 0 WHERE id = $1 AND status = 'queued'",
+      [jobId],
+    );
+    return result.rowCount === 1;
+  },
+
+  // The render finished and the clip is saved.
+  async markDone(jobId: string, db: Db = pool): Promise<void> {
+    await db.query("UPDATE jobs SET status = 'done', progress = 100 WHERE id = $1", [jobId]);
+  },
+
+  async insertOutput(output: NewOutput, db: Db = pool): Promise<void> {
+    await db.query(
+      `INSERT INTO outputs (job_id, plan_id, storage_key, duration_s, size_bytes, captions_burned_in)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [output.jobId, output.planId, output.storageKey, output.durationS, output.sizeBytes, output.captionsBurnedIn],
+    );
+  },
+
+  // Deletes the job. Everything that belongs to it (plans, transcript, output...) goes with it.
+  async deleteById(jobId: string): Promise<void> {
+    await pool.query("DELETE FROM jobs WHERE id = $1", [jobId]);
   },
 
   // The plan is ready: the job now waits for the user to approve it.
@@ -92,7 +120,7 @@ export const jobsQueries = {
 
   async findOutput(jobId: string): Promise<OutputRow | undefined> {
     const { rows } = await pool.query<OutputRow>(
-      "SELECT duration_s, size_bytes FROM outputs WHERE job_id = $1",
+      "SELECT duration_s, size_bytes, captions_burned_in FROM outputs WHERE job_id = $1",
       [jobId],
     );
     return rows[0];

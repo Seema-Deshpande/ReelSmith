@@ -1,0 +1,15 @@
+{
+  // TypeScript settings for the test files, so the editor and "npm run typecheck" can check them.
+  // The tests run through Playwright, which loads them its own way, so these settings only decide
+  // how the files are checked. "Bundler" lets a test import ../../src/helpers/x without a ".js" ending.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "rootDir": "..",
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["./**/*.ts", "../playwright.config.ts", "../src/**/*.ts"],
+  "exclude": ["../node_modules", "./.fixtures"]
+}

@@ -43,3 +43,26 @@ export async function approveJob(req: Request, res: Response) {
 
   res.json(await approvalService.approveJob(id, toggles));
 }
+
+// GET /api/jobs/:id/video: send the finished clip. Add ?download=1 to make the browser save it.
+// Express handles ranges, so the video can be played and skipped through in the browser.
+export async function getVideo(req: Request, res: Response) {
+  const id = req.params.id as string;
+  const filePath = await jobsService.findVideoFile(id);
+  const downloadName = req.query.download === "1" ? `reelsmith-${id.slice(0, 8)}.mp4` : undefined;
+
+  await new Promise<void>((resolve, reject) => {
+    const whenSent = (error?: Error | null) => (error ? reject(error) : resolve());
+
+    if (downloadName) res.download(filePath, downloadName, whenSent);
+    else res.sendFile(filePath, whenSent);
+  });
+}
+
+// DELETE /api/jobs/:id: remove a job and its files.
+export async function deleteJob(req: Request, res: Response) {
+  const id = req.params.id as string;
+  await jobsService.deleteJob(id);
+
+  res.status(204).end();
+}
