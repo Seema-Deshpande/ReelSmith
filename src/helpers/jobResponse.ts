@@ -33,6 +33,7 @@ function toOutputResponse(jobId: string, output: OutputRow) {
   return {
     durationS: output.duration_s,
     sizeBytes: Number(output.size_bytes),
+    captionsBurnedIn: output.captions_burned_in, // false until captions are built
     videoUrl: `/api/jobs/${jobId}/video`,
   };
 }
