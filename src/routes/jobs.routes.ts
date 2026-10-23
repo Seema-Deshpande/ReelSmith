@@ -13,3 +13,5 @@ jobsRouter.post("/", uploadVideo, validateBody(createJobBodySchema), asyncHandle
 jobsRouter.get("/:id", validateParams(jobParamsSchema), asyncHandler(jobsController.getJob));
 jobsRouter.post("/:id/revise", validateParams(jobParamsSchema), validateBody(reviseBodySchema), asyncHandler(jobsController.reviseJob));
 jobsRouter.post("/:id/approve", validateParams(jobParamsSchema), validateBody(approveBodySchema), asyncHandler(jobsController.approveJob));
+jobsRouter.get("/:id/video", validateParams(jobParamsSchema), asyncHandler(jobsController.getVideo));
+jobsRouter.delete("/:id", validateParams(jobParamsSchema), asyncHandler(jobsController.deleteJob));

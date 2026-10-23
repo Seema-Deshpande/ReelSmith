@@ -10,11 +10,12 @@ import type { JobRow } from "../types/job.types.js";
 import type { PlanDraft } from "../types/plan.types.js";
 import { getJob } from "./jobs.service.js";
 import { interpretFeedback, makePlan } from "./planner.service.js";
+import { enqueueRender } from "./render.queue.js";
 
 // What this file does:
 //   The two things a user can do while a job waits for approval:
 //     revise  - ask for a change in plain words. This makes a new version of the plan.
-//     approve - accept the plan. The job is then queued to be rendered.
+//     approve - accept the plan. The job is then queued to be rendered (render.queue.ts).
 //   Both only work while the job is "awaiting_approval".
 
 // ---------------------------------------------------------------------------
@@ -76,7 +77,7 @@ export async function reviseJob(jobId: string, feedback: string) {
   return getJob(jobId);
 }
 
-// Accept the plan, with any last switches the user changed. Returns the updated job.
+// Accept the plan, with any last switches the user changed, and start the render. Returns the updated job.
 export async function approveJob(jobId: string, toggles: ApproveInput) {
   await withTransaction(async (db) => {
     // The lock makes sure two approvals at the same time cannot both succeed.
@@ -88,7 +89,10 @@ export async function approveJob(jobId: string, toggles: ApproveInput) {
     await jobsQueries.markQueued(jobId, db);
   });
 
-  return getJob(jobId);
+  // Read the job before the render starts, so the answer says "queued".
+  const queuedJob = await getJob(jobId);
+  enqueueRender(jobId);
+  return queuedJob;
 }
 
 // ---------------------------------------------------------------------------

@@ -53,3 +53,32 @@ export async function getJob(id: string) {
 
   return toJobResponse({ job, video, plan, segments, captionStyle, transcriptProvider, output });
 }
+
+// Where the finished clip is, so it can be sent to the user. Throws a 404 if there is none.
+export async function findVideoFile(id: string) {
+  const job = await jobsQueries.findById(id);
+  if (!job) {
+    throw HttpError.notFound("job not found");
+  }
+
+  const output = await jobsQueries.findOutput(id);
+  const filePath = storage.outputPath(id);
+  if (!output || !(await storage.fileExists(filePath))) {
+    throw HttpError.notFound("The video is not ready yet.");
+  }
+  return filePath;
+}
+
+// Delete a job and everything stored for it. A job that is being rendered cannot be deleted.
+export async function deleteJob(id: string) {
+  const job = await jobsQueries.findById(id);
+  if (!job) {
+    throw HttpError.notFound("job not found");
+  }
+  if (job.status === "rendering") {
+    throw HttpError.conflict("The video is being rendered right now. Try again when it has finished.");
+  }
+
+  await jobsQueries.deleteById(id);
+  await storage.removeJobFiles(id);
+}

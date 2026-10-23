@@ -3,6 +3,7 @@ import {
   LOCAL_WHISPER_PORT,
   TEST_DATABASE_URL,
   TEST_MAX_UPLOAD_MB,
+  TEST_OUTPUT_DIR,
   TEST_PORT,
   TEST_UPLOAD_DIR,
 } from "./tests/support/env";
@@ -16,6 +17,7 @@ function serverEnv(port: number, transcribeProvider: string) {
     PORT: String(port),
     DATABASE_URL: TEST_DATABASE_URL,
     UPLOAD_DIR: TEST_UPLOAD_DIR,
+    OUTPUT_DIR: TEST_OUTPUT_DIR,
     MAX_UPLOAD_MB: String(TEST_MAX_UPLOAD_MB),
     JOB_TTL_HOURS: "1",
     TRANSCRIBE_PROVIDER: transcribeProvider,

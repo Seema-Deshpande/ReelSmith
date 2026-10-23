@@ -8,6 +8,7 @@ outputs/
 # Tests
 tests/.fixtures/
 .test-uploads/
+.test-outputs/
 test-results/
 playwright-report/
 models/
